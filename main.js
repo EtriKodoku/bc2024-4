@@ -5,10 +5,10 @@ const path = require('path');
 
 
 program
-  .requiredOption('-H, --host <host>', 'server host')
-  .requiredOption('-p, --port <port>', 'server port')
-  .requiredOption('-c, --cache <path>', 'cache directory path')
-  .parse(process.argv);
+    .requiredOption('-H, --host <host>', 'server host')
+    .requiredOption('-p, --port <port>', 'server port')
+    .requiredOption('-c, --cache <path>', 'cache directory path')
+    .parse(process.argv);
 
 const { host, port, cache } = program.opts();
 
@@ -29,7 +29,37 @@ const server = http.createServer(async (req, res) => {
           res.end('Server error');
         }
       }
-    }
+    } else if (req.method === 'PUT') {
+        let data = [];
+        req.on('data', chunk => {
+            data.push(chunk);
+        });
+        req.on('end', async () => {
+            const buffer = Buffer.concat(data);
+            try {
+                await fs.writeFile(filePath, buffer);
+                res.writeHead(201, { 'Content-Type': 'text/plain' });
+                res.end('File created/updated');
+            } catch (error) {
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Server error');
+            }
+        });
+      } else if (req.method === 'DELETE') {
+            try {
+                await fs.unlink(filePath);
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.end('File deleted');
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end('File not found');
+                } else {
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    res.end('Server error');
+                }
+        }
+      }
     else {
         res.writeHead(405, { 'Content-Type': 'text/plain' });
         res.end('Method not allowed');
@@ -37,6 +67,6 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, host, () => {
-  console.log(`Server running at http://${host}:${port}/`);
-  console.log(`Cache directory is set to: ${cache}`);
+    console.log(`Server running at http://${host}:${port}/`);
+    console.log(`Cache directory is set to: ${cache}`);
 });
